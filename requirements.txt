@@ -6,3 +6,5 @@ scipy==1.10.1
 timeout-decorator==0.5.0
 tqdm==4.66.1
 torch==1.13.0
+
+Eksperimen	Data Latih	emb_dim	learning_rate	epoch_num	AUC Score	nDCG@5 Score	Waktu Training

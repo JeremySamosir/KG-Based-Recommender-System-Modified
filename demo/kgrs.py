@@ -1,37 +1,87 @@
+# For interacting with the operating system, like managing file paths.
 import os
+
+# Used for type hinting to indicate that a variable is a list.
 from typing import List
+
+# A fundamental library for numerical computation in Python. 
+# It's used to handle the training data (train_pos, train_neg) which are numerical matrices.
 import numpy as np
+
+# The main deep learning library (PyTorch) used to build and train the TransE model.
 import torch
+
+# For generating random numbers, especially during negative sampling.
 import random
+
+# To create a visual progress bar during the training process.
 from tqdm import tqdm
 
-
+"""
+        Class Dataloader
+        This class is responsible for preparing all the raw data into a format that the model can readily use.
+        :__init__(self, ...)
+        This method is executed when a Dataloader object is first created.
+        :_add_recsys_to_kg(self)
+        Merges user interaction data into the knowledge graph.
+        :_load_ratings(self)
+        Processes user IDs to prevent collision with entity IDs.
+        :_convert_kg(self, lines)
+        Reads kg.txt and relation2id.txt to convert them into a numerical format.
+        :get_training_batch(self)
+        Prepares batches of data for one training epoch.
+"""
 class Dataloader:
-    def __init__(self, train_pos, train_neg, kg_lines, train_batch_size: int = 128, neg_rate: float = 2):
+    def __init__(self, train_pos, train_neg, kg_lines, n_user, n_item, train_batch_size: int = 128, neg_rate: float = 2):
+        # Calls the internal _convert_kg function to process kg.txt, resulted
+        # self.kg: A list containing the KG triplets, already converted to numbers.
+        # self.rel_dict: The dictionary mapping text relations to numerical IDs.
+        # self.n_entity: The total number of unique entities in the KG (items, genres, actors etc.).
         self.kg, self.rel_dict, self.n_entity = self._convert_kg(kg_lines)
+
+        # Stores the positive and negative interaction data, user, and item count
         self.train_pos, self.train_neg = train_pos, train_neg
-        self.n_user = max(list(set(self.train_pos[:, 0]) | set(self.train_neg[:, 0]))) + 1
-        self.n_item = max(list(set(self.train_pos[:, 1]) | set(self.train_neg[:, 1]))) + 1
+        self.n_user = n_user
+        self.n_item = n_item
+
+        # Calls an internal function to process the interaction data.
         self._load_ratings()
-        self.known_neg_dict = []  # Save the currently known negative samples
+        #Creates an empty list to store known negative samples.
+        self.known_neg_dict = []
+        # Calls an internal function to merge interaction data into the KG.
         self._add_recsys_to_kg()
+        # Stores the batch size for training.
         self.train_batch_size = train_batch_size
+        # Stores the ratio of negative samples to be generated.
         self.neg_rate = neg_rate
+        # Calculates the total number of entities + users. 
+        # This is the total number of nodes in the combined graph.
         self.ent_num = self.n_entity + self.n_user
+        # Calculates the total number of existing relations.
         self.rel_num = len(self.rel_dict)
 
     def _add_recsys_to_kg(self):
         # Add the interaction data to the kg as the extra relation
+        # Creates a new relation named feedback_recsys with a new numerical ID. 
+        # This relation specifically marks user-item interactions.
         self.rel_dict['feedback_recsys'] = max([self.rel_dict[key] for key in self.rel_dict]) + 1
+        
+        # Loops through each positive interaction.
         for interaction in self.train_pos:
+            # Adds the positive interaction as a new triplet to the main KG.
+            # (user_10001, feedback_relation, item_123)
             self.kg.append((interaction[0], self.rel_dict['feedback_recsys'], interaction[1]))
         for interaction in self.train_neg:
+            # Same like train_pos
             self.known_neg_dict.append((interaction[0], self.rel_dict['feedback_recsys'], interaction[1]))
 
     def _load_ratings(self):
         # Loading known interaction data
         self.n_entity = max(self.n_item, self.n_entity)
         for i in range(len(self.train_pos)):
+            # Key Step! The user ID (0-th column) is shifted by adding the total number of entities. 
+            # If there are 10,000 entities, user ID 0 becomes 10000, 
+            # user ID 1 becomes 10001, and so on. This is done so that users and entities can coexist in the same ID space without overlap.
             self.train_pos[i][0] += self.n_entity
         for i in range(len(self.train_neg)):
             self.train_neg[i][0] += self.n_entity
@@ -41,7 +91,11 @@ class Dataloader:
         entity_set = set()
         kg = []
         rel_dict = {}
-        for line in open('./relation2id.txt', encoding='utf8').readlines():
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        relation_file_path = os.path.join(base_dir, 'relation2id.txt')
+
+        for line in open(relation_file_path, encoding='utf8').readlines():
             elements = line.replace('\n', '').split('\t')
             rel_dict[elements[0]] = int(elements[1])
         for line in lines:
@@ -140,7 +194,11 @@ class TransE(torch.nn.Module):
         self.margin: float = margin
         self.learning_rate: float = learning_rate
         self.weight_decay = weight_decay
+        # Entity Embedding Layer. This is a core component. Imagine it as a giant table or
+        # dictionary. The first row is the vector for entity ID 0, 
+        # the second row for entity ID 1, and so on. The size of each vector is dim.
         self.ent_embedding = torch.nn.Embedding(self.ent_num, self.dim, device=self.device)
+        # Same as above, but this is the embedding table for Relations.
         self.rel_embedding = torch.nn.Embedding(self.rel_num, self.dim, device=self.device)
 
     def forward(self, head, rel, tail) -> torch.Tensor:
@@ -148,7 +206,11 @@ class TransE(torch.nn.Module):
         head_emb = self.ent_embedding(torch.IntTensor(head).to(self.device))
         tail_emb = self.ent_embedding(torch.IntTensor(tail).to(self.device))
         rel_emb = self.rel_embedding(torch.IntTensor(rel).to(self.device))
+
         if self.l1:
+            # Implementation of the TransE formula ||h + r - t||
+            # torch.abs(...) and torch.sum(...): Calculates the distance (L1-distance). 
+            # The result is a single number (score) for each triplet.
             score = torch.sum(torch.abs(torch.subtract(torch.add(head_emb, rel_emb), tail_emb)), dim=-1, keepdim=True)
         else:
             score = torch.sum(torch.square(torch.subtract(torch.add(head_emb, rel_emb), tail_emb)), dim=-1,
@@ -216,7 +278,7 @@ class TransE(torch.nn.Module):
 
 
 class KGRS:
-    def __init__(self, train_pos: np.array, train_neg: np.array, kg_lines: List[str]):
+    def __init__(self, train_pos: np.array, train_neg: np.array, kg_lines: List[str], n_user: int, n_item: int):
         """
         Initialize the Algorithm
         :param train_pos: The Positive Samples in the Training Set, is a numpy matrix with shape (n,3),
@@ -237,9 +299,9 @@ class KGRS:
                          is 749, tail entity is 2347, and the relation type is "film.film.writer".
         """
         # Change the code work directory to the root dir of our submit folder
-        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+        # os.chdir(os.path.dirname(os.path.abspath(__file__)))
         config = {"batch_size": 256, "eval_batch_size": 1024, "neg_rate": 1.5, "emb_dim": 16, "l1": True, "margin": 30,
-                  "learning_rate": 2e-3, "weight_decay": 5e-4, "epoch_num": 35}
+                  "learning_rate": 2e-3, "weight_decay": 5e-4, "epoch_num": 50}
         self.batch_size = config["batch_size"]
         self.eval_batch_size = config["eval_batch_size"]
         self.neg_rate = config["neg_rate"]
@@ -251,7 +313,7 @@ class KGRS:
         self.epoch_num = config["epoch_num"]
         self.device_index = -1
         self.kg = kg_lines
-        self.dataloader = Dataloader(train_pos, train_neg, self.kg, neg_rate=self.neg_rate,
+        self.dataloader = Dataloader(train_pos, train_neg, self.kg, n_user=n_user, n_item=n_item, neg_rate=self.neg_rate,
                                      train_batch_size=self.batch_size)
         self.model = TransE(ent_num=self.dataloader.ent_num, rel_num=self.dataloader.rel_num,
                             dataloader=self.dataloader, margin=self.margin, dim=self.emb_dim, l1=self.l1,

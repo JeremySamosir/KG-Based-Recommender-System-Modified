@@ -1,6 +1,8 @@
 import logging
 import time
 from copy import deepcopy
+import os
+import sys
 
 import math
 import numpy as np
@@ -8,9 +10,12 @@ import torch
 from pytorch_lightning import seed_everything
 from sklearn.metrics import roc_auc_score
 
+# Add project root to the python searching path
+# os.path.dirname(__file__) -> get this dir (.../eval)
+# os.path.join(..., '..') -> go up one level to (.../KG-BASED_RECOMM...)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from demo.kgrs import KGRS
-
-
 
 def nDCG(sorted_items, pos_item, train_pos_item, k=5):
     dcg = 0
@@ -35,12 +40,23 @@ def nDCG(sorted_items, pos_item, train_pos_item, k=5):
 
 
 def load_data():
-    train_pos, train_neg = np.load("../data/train_pos.npy"), np.load(
-        "../data/train_neg.npy")
-    train_pos_len, train_neg_len = int(len(train_pos)*0.8), int(len(train_neg)*0.8)
-    test_pos, test_neg = train_pos[train_pos_len:], train_neg[train_neg_len:]
-    train_pos, train_neg = train_pos[:train_pos_len], train_neg[:train_neg_len]
-    return train_pos, train_neg, test_pos, test_neg
+    full_train_pos, full_train_neg = np.load("data/train_pos.npy"), np.load(
+        "data/train_neg.npy")
+    
+    np.random.shuffle(full_train_pos)
+    np.random.shuffle(full_train_neg)
+    
+    all_users = set(full_train_pos[:, 0]) | set(full_train_neg[:, 0])
+    all_items = set(full_train_pos[:, 1]) | set(full_train_neg[:, 1])
+    n_user = max(all_users) + 1
+    n_item = max(all_items) + 1
+
+    train_ratio = 0.8
+    train_pos_len, train_neg_len = int(len(full_train_pos) * train_ratio), int(len(full_train_neg) * train_ratio)
+    test_pos, test_neg = full_train_pos[train_pos_len:], full_train_neg[train_neg_len:]
+    train_pos, train_neg = full_train_pos[:train_pos_len], full_train_neg[:train_neg_len]
+    
+    return train_pos, train_neg, test_pos, test_neg, n_user, n_item
 
 
 def get_user_pos_items(train_pos, test_pos):
@@ -61,7 +77,7 @@ def get_user_pos_items(train_pos, test_pos):
 
 
 def evaluate():
-    train_pos, train_neg, test_pos, test_neg = load_data()
+    train_pos, train_neg, test_pos, test_neg, n_user, n_item = load_data()
     user_pos_items, user_train_pos_items = get_user_pos_items(train_pos=train_pos, test_pos=test_pos)
     logging.disable(logging.INFO)
     seed_everything(1088, workers=True)
@@ -71,7 +87,9 @@ def evaluate():
     start_time, init_time, train_time, ctr_time, topk_time = time.time(), 0, 0, 0, 0
     kgrs = KGRS(train_pos=deepcopy(train_pos),
                 train_neg=deepcopy(train_neg),
-                kg_lines=open('../data/kg.txt', encoding='utf-8').readlines())
+                kg_lines=open('data/kg.txt', encoding='utf-8').readlines(),
+                n_user=n_user,
+                n_item=n_item,)
     init_time = time.time() - start_time
 
     kgrs.training()
