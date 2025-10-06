@@ -34,42 +34,6 @@ $$
 \underset{f}{\max} \ nDCG@5(f, \mathcal{Y}_{\text{test}})
 $$
 
-## Methodology
-### System Architecture
-
-![kgrs-architecture](https://github.com/user-attachments/assets/9a111a03-425c-4a95-a1e3-221c28c3d872)
-### Workflow
-1. **Dataset Preparation** – Encode data and construct the knowledge graph.
-2. **Model Training** – Optimize the model using training data and minimize the loss function.
-3. **Model Testing** – Evaluate performance using AUC and nDCG@5.
-4. **Hyperparameter Tuning** – Optimize learning rate, batch size, etc.
-
-### Algorithms Implemented
-**Top-K Recommendation Algorithm:** Ranks and filters the top-K most relevant items for each user.
-
-The following pseudocode describes the procedure for evaluating the top-K recommendations for a list of users. For each user, the algorithm identifies the top-K items that they are most likely to interact with, excluding items they have already interacted with in the training dataset. The implementation leverages the scoring function of the model and sorts the items based on their predicted scores.
-
-```text
-Algorithm: Top-K Recommendation
-Input: List of users, number of top recommendations k (default = 5)
-Output: List of top-K recommended items for each user
-
-1. Retrieve item list and known positive items for each user
-2. Initialize an empty list `sorted_list`
-3. For each user in the user list:
-   a. Compute head entities
-   b. Compute relations
-   c. Set tail entities
-   d. Compute scores using the model
-   e. Sort scores in descending order
-   f. Initialize an empty list `sorted_items`
-   g. For each index in the sorted scores:
-      i. If `sorted_items` has k items, break
-      ii. If the user has not interacted with the item, add it to `sorted_items`
-   h. Append `sorted_items` to `sorted_list`
-4. Return `sorted_list`
-```
-
 ## Model Analysis
 ### Hyperparameters
 | Parameter | Value |
@@ -83,26 +47,40 @@ Output: List of top-K recommended items for each user
 | Weight Decay | 5e-4 |
 | Epochs | 35 |
 
+### Hyperparameters i used
+| Parameter | Value |
+|-----------|-------|
+| Batch Size | 256 |
+| Evaluation Batch Size | 1024 |
+| Negative Sampling Rate | 1.5 |
+| Embedding Dimensions | 16 |
+| Margin | 30 |
+| Learning Rate | 2e-3 |
+| Weight Decay | 5e-4 |
+| Epochs | 50 |
+
 ### Experiment Results
 #### AUC Evaluation
 - **AUC Score:** 0.7003
 - Higher embedding dimensions improve performance but may overfit.
-- Adjusting margin and negative sampling rate impacts results.
 
 #### nDCG@5 Evaluation
 - **nDCG@5 Score:** 0.1844
 - Ranking accuracy is influenced by hyperparameter selection.
-- Strong correlation between **AUC and nDCG@5**.
+
+### My Experiment Results
+#### AUC Evaluation
+- **AUC Score:** 0.8494
+
+#### nDCG@5 Evaluation
+- **nDCG@5 Score:** 0.0953
 
 ## Conclusion
-The KG-based recommender system developed in this project demonstrated notable strengths in leveraging structured knowledge to enhance user-item predictions. One key advantage of this approach is its ability to incorporate rich contextual relationships between entities, which allows for more informed and precise recommendations. This contextual understanding surpasses traditional matrix factorization methods that rely solely on interaction data. 
+The conducted experiment successfully validated the potential of this Knowledge Graph-based recommender, surpassing the initial benchmark's predictive performance after a critical flaw in the evaluation methodology was resolved. The most significant finding was the importance of randomly shuffling the data before splitting, which corrected initial anomalies and confirmed the model benefits from more data. The final result was a very strong AUC score of 0.8494, outperforming the original 0.7003 benchmark and demonstrating a superior ability to differentiate between user preferences.
 
-However, several challenges were observed. The computational complexity of the model, particularly during the training phase, posed scalability issues when applied to large-scale datasets. Additionally, the quality of the recommendations heavily depended on the completeness and accuracy of the knowledge graph, which might not always be achievable in practical applications.
-
-Experimental results aligned with expectations, showcasing strong performance on metrics like AUC and nDCG@5. Nonetheless, there were cases where user preferences were underpredicted due to sparsity in the knowledge graph or interaction records. 
-
-Future improvements could focus on integrating graph neural networks (GNNs) to further exploit the structural properties of the knowledge graph. Additionally, fine-tuning hyperparameters, exploring alternative embeddings like TransH or RotatE, and incorporating auxiliary data such as user reviews or temporal information could potentially enhance the model's robustness and accuracy. Despite its limitations, the proposed system lays a solid foundation for knowledge graph-driven recommendation strategies.
+However, this predictive strength did not fully align with ranking performance, where the nDCG@5 score of 0.0953 was significantly lower than the 0.1844 benchmark. This discrepancy indicates that while the model excels at the binary classification task (like/dislike), it is less optimal at ordering the most relevant top items. Future work could focus on improving the nDCG score by tuning hyperparameters that influence relative scoring, such as margin and neg_rate, or by exploring more rank-oriented loss functions.
 
 ## References
 - Q. Guo et al., "A Survey on Knowledge Graph-Based Recommender Systems," *IEEE Transactions on Knowledge and Data Engineering*, pp. 1–1, 2020, doi: 10/ghxwqg.
 - D. Bahdanau, K. Cho, and Y. Bengio, "Neural Machine Translation by Jointly Learning to Align and Translate," in *3rd International Conference on Learning Representations, ICLR 2015*, San Diego, CA, USA, May 7-9, 2015. [Online]. Available: [http://arxiv.org/abs/1409.0473](http://arxiv.org/abs/1409.0473)
+- https://github.com/Layheng-Hok/KG-Based-Recommender-System?tab=readme-ov-file
