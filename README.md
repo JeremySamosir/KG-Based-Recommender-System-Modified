@@ -1,3 +1,5 @@
+<img width="1120" height="473" alt="image" src="Untitled-2025-10-08-0249.png" />
+
 ## Model Analysis
 ### Hyperparameters Default
 | Parameter | Value |
