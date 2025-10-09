@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 <img width="1120" height="473" alt="image" src="Untitled-2025-10-08-0249.png" />
-=======
-<img width="1120" height="473" alt="image" src="https://github.com/user-attachments/assets/9cc85187-12ea-4bd6-bbd0-070249fe01c8" />
->>>>>>> d2b269c15c7fec0b9b11a8ea3b28a0461cd8b06b
 
 ## Model Analysis
 ### Hyperparameters Default
