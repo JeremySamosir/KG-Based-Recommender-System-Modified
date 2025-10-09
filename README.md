@@ -1,3 +1,5 @@
+<img width="1120" height="473" alt="image" src="https://github.com/user-attachments/assets/9cc85187-12ea-4bd6-bbd0-070249fe01c8" />
+
 ## Model Analysis
 ### Hyperparameters Default
 | Parameter | Value |
