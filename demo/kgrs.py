@@ -242,8 +242,8 @@ class KGRS:
         """
         # Change the code work directory to the root dir of our submit folder
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
-        config = {"batch_size": 128, "eval_batch_size": 1024, "neg_rate": 3, "emb_dim": 64, "l1": True, "margin": 35,
-                  "learning_rate": 1e-3, "weight_decay": 5e-4, "epoch_num": 50}
+        config = {"batch_size": 128, "eval_batch_size": 1024, "neg_rate": 3, "emb_dim": 256, "l1": True, "margin": 25,
+                  "learning_rate": 7e-4, "weight_decay": 1e-5, "epoch_num": 100}
         self.batch_size = config["batch_size"]
         self.eval_batch_size = config["eval_batch_size"]
         self.neg_rate = config["neg_rate"]
